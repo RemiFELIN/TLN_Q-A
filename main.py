@@ -14,8 +14,11 @@ line = ""
 
 # On cherche les questions :
 questions = []
-pattern = re.compile(r'"en">([A-Za-z\s]*\?)')
+pattern_question = re.compile(r'"en">([A-Za-z\s]*\?)')
 
+# On cherche les requetes :
+requests = []
+pattern_request = re.compile(r'')
 
 # Tokenizer and pos_tag
 def ie_preprocess(doc):
@@ -29,11 +32,12 @@ def ner(l):
     pattern = 'NP: {<DT>?<JJ>*<NN>}'
     cp = nltk.RegexpParser(pattern)
     cs = cp.parse(l)
+    return cs
 
 
 # To find question
 for raw in file:
-    question = pattern.findall(raw)
+    question = pattern_question.findall(raw)
     if len(question) != 0:
         questions.append(question)
 
@@ -45,6 +49,3 @@ for question in questions:
     line = ie_preprocess(question)
     print(ner(line))
 
-'European authorities fined Google a record $5.1 billion on Wednesday for ' \
-'abusing its power in the mobile phone market and ordered the company to alter ' \
-'its practices'
