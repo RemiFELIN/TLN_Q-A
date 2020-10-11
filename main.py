@@ -38,13 +38,30 @@ def find_question_word(text):
     text = text.lower()
     tokens = nltk.word_tokenize(text)    
     question_keyword = ['where', 'when', 'who', 'how', 'whom', 'in which', 'what is', 'which']
-    print(question_keyword)
     for i, word in enumerate(tokens):
         print(word, i)
         for word in question_keyword:
             if word in question_keyword:
                 answer = word
-            else: answer = 'ntm'        
+            else: answer = None
+    if answer == 'where':
+        print('the answer will be a place')
+    elif answer == 'when':
+        print('the answer will be a date')
+    elif answer == 'who':
+        print('the answer will be a person or a company/firm')
+    elif answer == 'how':
+        print('the answer will be a quantity (number) or a NC')
+    elif answer == 'whom':
+        print('the answer will be a person')
+    elif answer == 'in which':
+        print('the answer will be a place')
+    elif answer == 'what is':
+        print('the answer can be a place or a person or a number')
+    elif answer == 'which':
+        print('the answer will be find with the end of the question')
+    else:
+        print('We dont recognize the question word')
     return answer
 
 # To find question
