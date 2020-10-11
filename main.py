@@ -7,7 +7,7 @@ import re
 # pprint(iob_tagged)
 
 ### IMPORT DU FICHIER QUESTION ET UTILISATION NLTK
-PATH_FILE = "D:\Travail\MIAGE\M2 MIAGE\TLN\TALN CM3+TP3\questions.xml"
+PATH_FILE = "questions.xml"
 
 file = open(PATH_FILE, "r")
 line = ""
@@ -34,6 +34,18 @@ def ner(l):
     cs = cp.parse(l)
     return cs
 
+def find_question_word(text):
+    text = text.lower()
+    tokens = nltk.word_tokenize(text)    
+    question_keyword = ['where', 'when', 'who', 'how', 'whom', 'in which', 'what is', 'which']
+    print(question_keyword)
+    for i, word in enumerate(tokens):
+        print(word, i)
+        for word in question_keyword:
+            if word in question_keyword:
+                answer = word
+            else: answer = 'ntm'        
+    return answer
 
 # To find question
 for raw in file:
@@ -48,4 +60,6 @@ for question in questions:
     question = ''.join(question)
     line = ie_preprocess(question)
     print(ner(line))
+    ans = find_question_word(question)
+    print(ans)
 
