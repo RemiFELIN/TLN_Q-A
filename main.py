@@ -15,10 +15,9 @@ line = ""
 # On cherche les questions :
 questions = []
 pattern_question = re.compile(r'"en">([A-Za-z\s]*\?)')
+# On cherche les requetes
+pattern_request = re.compile(r'"en">(Give\s[A-Za-z\s]*\.)')
 
-# On cherche les requetes :
-requests = []
-pattern_request = re.compile(r'')
 
 # Tokenizer and pos_tag
 def ie_preprocess(doc):
@@ -34,49 +33,61 @@ def ner(l):
     cs = cp.parse(l)
     return cs
 
-def find_question_word(text):
-    text = text.lower()
-    tokens = nltk.word_tokenize(text)    
-    question_keyword = ['where', 'when', 'who', 'how', 'whom', 'in which', 'what is', 'which']
-    for i, word in enumerate(tokens):
-        print(word, i)
-        for word in question_keyword:
-            if word in question_keyword:
-                answer = word
-            else: answer = None
+
+def find_key_word(text):
+    for elem in text:
+        elem = str(elem)
+        elem = elem.lower()
+        # what is -> what / in which -> in == pour éviter les erreurs de lecture
+        keyword = ['where', 'when', 'who', 'how', 'whom', 'in', 'what', 'which', 'give']
+        for q in keyword:
+            if elem.find(q) != -1:
+                return q
+    return None
+
+
+def print_rule(answer):
     if answer == 'where':
-        print('the answer will be a place')
+        print(answer, ': the answer will be a place')
     elif answer == 'when':
-        print('the answer will be a date')
+        print(answer, ': the answer will be a date')
     elif answer == 'who':
-        print('the answer will be a person or a company/firm')
+        print(answer, ': the answer will be a person or a company/firm')
     elif answer == 'how':
-        print('the answer will be a quantity (number) or a NC')
+        print(answer, ': the answer will be a quantity (number) or a NC')
     elif answer == 'whom':
-        print('the answer will be a person')
-    elif answer == 'in which':
-        print('the answer will be a place')
-    elif answer == 'what is':
-        print('the answer can be a place or a person or a number')
+        print(answer, ': the answer will be a person')
+    elif answer == 'in':
+        print(answer, ': the answer will be a place')
+    elif answer == 'what':
+        print(answer, ': the answer can be a place or a person or a number')
     elif answer == 'which':
-        print('the answer will be find with the end of the question')
+        print(answer, ': the answer will be find with the end of the question')
+    elif answer == "give":
+        print(answer, ": it is a request !")
     else:
-        print('We dont recognize the question word')
+        print(answer, ': We dont recognize the question word')
+    print()
     return answer
 
-# To find question
+
+# To find question and request
 for raw in file:
     question = pattern_question.findall(raw)
+    request = pattern_request.findall(raw)
     if len(question) != 0:
         questions.append(question)
-
+    elif len(request) != 0:
+        questions.append(request)
 
 # We will analyze it
 for question in questions:
     # cast list in string to do preprocess
     question = ''.join(question)
     line = ie_preprocess(question)
-    print(ner(line))
-    ans = find_question_word(question)
-    print(ans)
+    line = ner(line)
+    print("--------------------------------")
+    print(">", question)
+    print(line)
+    print_rule(find_key_word(line))
 
