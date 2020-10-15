@@ -1,6 +1,9 @@
 import nltk
 from nltk.chunk import conlltags2tree, tree2conlltags
 from pprint import pprint
+import spacy
+from spacy import displacy
+import en_core_web_sm
 import re
 
 # iob_tagged = tree2conlltags(cs)
@@ -27,11 +30,15 @@ def ie_preprocess(doc):
 
 
 # NER
+nlp = spacy.load('en_core_web_sm')
+
+
 def ner(l):
-    pattern = 'NP: {<DT>?<JJ>*<NN>}'
-    cp = nltk.RegexpParser(pattern)
-    cs = cp.parse(l)
-    return cs
+    res = []
+    ner = nlp(l)
+    for ent in ner.ents:
+        res.append([ent.text, ent.label_])
+    return res
 
 
 def find_key_word(text):
@@ -84,10 +91,10 @@ for raw in file:
 for question in questions:
     # cast list in string to do preprocess
     question = ''.join(question)
-    line = ie_preprocess(question)
-    line = ner(line)
     print("--------------------------------")
     print(">", question)
-    print(line)
-    print_rule(find_key_word(line))
+    line = ner(question)
+    for ent, lab in line:
+        print("> Entité trouvé : '{}' qui est du type {}".format(ent, lab))
+    print_rule(find_key_word(ie_preprocess(question)))
 
