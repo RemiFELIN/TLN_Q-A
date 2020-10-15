@@ -5,9 +5,10 @@ import spacy
 from spacy import displacy
 import en_core_web_sm
 import re
-
-# iob_tagged = tree2conlltags(cs)
-# pprint(iob_tagged)
+import urllib
+from SPARQLWrapper import SPARQLWrapper, XML
+from xml.etree.ElementTree import XML, fromstring
+import xml.etree.ElementTree as ET
 
 ### IMPORT DU FICHIER QUESTION ET UTILISATION NLTK
 PATH_FILE = "questions.xml"
@@ -29,7 +30,7 @@ def ie_preprocess(doc):
     return sent
 
 
-# NER
+# NER with Spacy
 nlp = spacy.load('en_core_web_sm')
 
 
@@ -78,6 +79,24 @@ def print_rule(answer):
     return answer
 
 
+# Building query (SPARQL Request)
+def build_request(query_string):
+    sparql = SPARQLWrapper("http://dbpedia.org/sparql")
+    sparql.setQuery(query_string)
+    sparql.setReturnFormat(XML)
+    result = sparql.query().convert()
+    return result
+
+
+def read_xml(result):
+    results = []
+    root = fromstring(result.toxml())
+    print(root[1][0][0][0].text)
+    for i in range(len(root[1])):
+        results.append(root[1][i][0][0].text)
+    return results
+
+
 # To find question and request
 for raw in file:
     question = pattern_question.findall(raw)
@@ -98,3 +117,5 @@ for question in questions:
         print("> Entité trouvé : '{}' qui est du type {}".format(ent, lab))
     print_rule(find_key_word(ie_preprocess(question)))
 
+print(">>> TEST DE QUERY")
+res = build_request("select distinct ?Concept where {[] a ?Concept} LIMIT 100")
