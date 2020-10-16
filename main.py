@@ -8,9 +8,11 @@ import re
 import urllib
 from SPARQLWrapper import SPARQLWrapper, XML
 from xml.etree.ElementTree import XML, fromstring
-import xml.etree.ElementTree as ET
+import sys
+import io
+import warnings
 
-### IMPORT DU FICHIER QUESTION ET UTILISATION NLTK
+# IMPORT DU FICHIER QUESTION ET UTILISATION NLTK
 PATH_FILE = "questions.xml"
 
 file = open(PATH_FILE, "r")
@@ -35,11 +37,11 @@ nlp = spacy.load('en_core_web_sm')
 
 
 def ner(l):
-    res = []
-    ner = nlp(l)
-    for ent in ner.ents:
-        res.append([ent.text, ent.label_])
-    return res
+    entities = []
+    ner_nlp = nlp(l)
+    for e in ner_nlp.ents:
+        entities.append([e.text, e.label_])
+    return entities
 
 
 def find_key_word(text):
@@ -81,6 +83,9 @@ def print_rule(answer):
 
 # Building query (SPARQL Request)
 def build_request(query_string):
+    # Catch SynthaxWarning
+    warnings.filterwarnings("ignore")
+    # Use SPARQL Wrapper
     sparql = SPARQLWrapper("http://dbpedia.org/sparql")
     sparql.setQuery(query_string)
     sparql.setReturnFormat(XML)
@@ -91,10 +96,39 @@ def build_request(query_string):
 def read_xml(result):
     results = []
     root = fromstring(result.toxml())
-    print(root[1][0][0][0].text)
     for i in range(len(root[1])):
         results.append(root[1][i][0][0].text)
     return results
+
+
+def choose_response(response, tag):
+    response_choosen = None
+    # Replace pounctuation (.:/#) by space
+    request_in_text = []
+    for i in range(len(response)):
+        text = response[i].replace(".", " ")
+        text = text.replace("/", " ")
+        text = text.replace(":", " ")
+        text = text.replace("#", " ")
+        request_in_text.append(text)
+    # For each element in request_in_text
+    for elem in request_in_text:
+        # cast response in Text nltk
+        tokens = nltk.word_tokenize(elem)
+        text = nltk.Text(tokens)
+        # A method to redirect print value into a variable
+        old_stdout = sys.stdout
+        new_stdout = io.StringIO()
+        sys.stdout = new_stdout
+        # Our matcher
+        text.similar(tag)
+        output = new_stdout.getvalue()
+        sys.stdout = old_stdout
+        # We choose first one which match
+        if output != "No matches":
+            response_choosen = response[request_in_text.index(elem)]
+            break
+    return response_choosen
 
 
 # To find question and request
@@ -119,3 +153,4 @@ for question in questions:
 
 print(">>> TEST DE QUERY")
 res = build_request("select distinct ?Concept where {[] a ?Concept} LIMIT 100")
+print(choose_response(read_xml(res), "com"))
