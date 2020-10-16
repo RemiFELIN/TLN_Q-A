@@ -130,6 +130,15 @@ def choose_response(response, tag):
             break
     return response_choosen
 
+'''sparql = SPARQLWrapper("http://dbpedia.org/sparql")
+verbe = 'crosses'
+nom = 'Brooklyn_Bridge'
+sparql.setQuery(" PREFIX dbo: <http://dbpedia.org/ontology/> PREFIX res: <http://dbpedia.org/resource/> SELECT DISTINCT ?uri WHERE { res:"+nom+" dbo:"+verbe+" ?uri . }")
+
+sparql.setReturnFormat(XML)
+results = sparql.query().convert()
+print(results.toxml())
+'''
 
 # To find question and request
 for raw in file:
