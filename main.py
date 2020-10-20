@@ -11,6 +11,8 @@ from xml.etree.ElementTree import XML, fromstring
 import sys
 import io
 import warnings
+from __future__ import print_function
+from nltk.metrics import *
 
 # IMPORT DU FICHIER QUESTION ET UTILISATION NLTK
 PATH_FILE = "questions.xml"
@@ -60,41 +62,49 @@ def get_rule(answer):
     # return a type of response for our requests
     if answer == 'where':
         # print(answer, ': the answer will be a place')
-        return "place"
+        return key=["place"]
     elif answer == 'when':
         # print(answer, ': the answer will be a date')
-        return "date"
+        return key=["date"]
     elif answer == 'who':
         # print(answer, ': the answer will be a person or a company/firm')
-        return "person", "company", "firm"
+        return key=["person", "company", "firm"]
     elif answer == 'how':
         # print(answer, ': the answer will be a quantity (number) or a NC')
-        return "number", "NC"
+        return key=["number", "NC"]
     elif answer == 'whom':
         # print(answer, ': the answer will be a person')
-        return "person"
+        return key=["person"]
     elif answer == 'in':
         # print(answer, ': the answer will be a place')
-        return "place"
+        return key=["place"]
     elif answer == 'what':
         # print(answer, ': the answer can be a place or a person or a number')
-        return "person", "number"
+        return key = ["person", "number"]
     elif answer == 'which':
         # print(answer, ': the answer will be find with the end of the question')
-        return "end"
+        return key = ["person", "company", "firm"]
     elif answer == "give":
         # print(answer, ": it is a request !")
-        return "list"
+        return key = ["list"]
     else:
         print(answer, ': We dont recognize the question word')
         return None
 
 
 def build_query(key, verb):
+    liste = []
+    simil = []
     prefix = " PREFIX dbo: <http://dbpedia.org/ontology/> PREFIX res: <http://dbpedia.org/resource/> "
     select = "SELECT DISTINCT ?uri "
-    filter = "WHERE { res:" + key + " dbo:" + verb + " ?uri . }"
-    query = str(prefix + select + filter)
+   # with open("relations.txt", "r") as a_file:
+   #     for line in a_file:
+   #         stripped_line = line.strip()
+   #         liste.append(stripped_line)
+   # for i in liste:
+   #     edit_distance(i, verb)
+   #     filter = "WHERE { res:" + key + " "+ i+" ?uri . }"
+   #     query = str(prefix + select + filter)
     return query
 
 
