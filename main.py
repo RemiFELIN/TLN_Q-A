@@ -56,38 +56,55 @@ def find_key_word(text):
     return None
 
 
-def print_rule(answer):
+def get_rule(answer):
+    # return a type of response for our requests
     if answer == 'where':
-        print(answer, ': the answer will be a place')
+        # print(answer, ': the answer will be a place')
+        return "place"
     elif answer == 'when':
-        print(answer, ': the answer will be a date')
+        # print(answer, ': the answer will be a date')
+        return "date"
     elif answer == 'who':
-        print(answer, ': the answer will be a person or a company/firm')
+        # print(answer, ': the answer will be a person or a company/firm')
+        return "person", "company", "firm"
     elif answer == 'how':
-        print(answer, ': the answer will be a quantity (number) or a NC')
+        # print(answer, ': the answer will be a quantity (number) or a NC')
+        return "number", "NC"
     elif answer == 'whom':
-        print(answer, ': the answer will be a person')
+        # print(answer, ': the answer will be a person')
+        return "person"
     elif answer == 'in':
-        print(answer, ': the answer will be a place')
+        # print(answer, ': the answer will be a place')
+        return "place"
     elif answer == 'what':
-        print(answer, ': the answer can be a place or a person or a number')
+        # print(answer, ': the answer can be a place or a person or a number')
+        return "person", "number"
     elif answer == 'which':
-        print(answer, ': the answer will be find with the end of the question')
+        # print(answer, ': the answer will be find with the end of the question')
+        return "end"
     elif answer == "give":
-        print(answer, ": it is a request !")
+        # print(answer, ": it is a request !")
+        return "list"
     else:
         print(answer, ': We dont recognize the question word')
-    print()
-    return answer
+        return None
+
+
+def build_query(key, verb):
+    prefix = " PREFIX dbo: <http://dbpedia.org/ontology/> PREFIX res: <http://dbpedia.org/resource/> "
+    select = "SELECT DISTINCT ?uri "
+    filter = "WHERE { res:" + key + " dbo:" + verb + " ?uri . }"
+    query = str(prefix + select + filter)
+    return query
 
 
 # Building query (SPARQL Request)
-def build_request(query_string):
+def build_request(query):
     # Catch SynthaxWarning
     warnings.filterwarnings("ignore")
     # Use SPARQL Wrapper
     sparql = SPARQLWrapper("http://dbpedia.org/sparql")
-    sparql.setQuery(query_string)
+    sparql.setQuery(query)
     sparql.setReturnFormat(XML)
     result = sparql.query().convert()
     return result
@@ -102,6 +119,12 @@ def read_xml(result):
 
 
 def choose_response(response, tag):
+    if tag is None and len(response) != 0:
+        # return first link
+        return response[0]
+    elif len(response) != 0:
+        # 0 Result so return None
+        return None
     response_choosen = None
     # Replace pounctuation (.:/#) by space
     request_in_text = []
@@ -130,15 +153,6 @@ def choose_response(response, tag):
             break
     return response_choosen
 
-'''sparql = SPARQLWrapper("http://dbpedia.org/sparql")
-verbe = 'crosses'
-nom = 'Brooklyn_Bridge'
-sparql.setQuery(" PREFIX dbo: <http://dbpedia.org/ontology/> PREFIX res: <http://dbpedia.org/resource/> SELECT DISTINCT ?uri WHERE { res:"+nom+" dbo:"+verbe+" ?uri . }")
-
-sparql.setReturnFormat(XML)
-results = sparql.query().convert()
-print(results.toxml())
-'''
 
 # To find question and request
 for raw in file:
@@ -158,8 +172,8 @@ for question in questions:
     line = ner(question)
     for ent, lab in line:
         print("> Entité trouvé : '{}' qui est du type {}".format(ent, lab))
-    print_rule(find_key_word(ie_preprocess(question)))
+    print("> rule(s):", get_rule(find_key_word(ie_preprocess(question))))
 
 print(">>> TEST DE QUERY")
-res = build_request("select distinct ?Concept where {[] a ?Concept} LIMIT 100")
-print(choose_response(read_xml(res), "com"))
+res = build_request(build_query("Brooklyn_Bridge", "crosses"))
+print(choose_response(read_xml(res), None))
