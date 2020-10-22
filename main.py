@@ -22,12 +22,13 @@ line = ""
 
 # On cherche les questions :
 questions = []
-pattern_question = re.compile(r'"en">([A-Za-z\s]*\?)')
+pattern_question = re.compile(r'"en">([A-Za-z.\s]*\?)')
 # On cherche les requetes
 pattern_request = re.compile(r'"en">(Give\s[A-Za-z\s]*\.)')
 
 # On va stocker les réponses de notre système
 responses_from_system = []
+
 
 # Tokenizer and pos_tag
 def ie_preprocess(doc):
@@ -168,6 +169,7 @@ def choose_response(response, tag):
 
 # To find question and request
 for raw in file:
+    print(raw)
     question = pattern_question.findall(raw)
     request = pattern_request.findall(raw)
     if len(question) != 0:
@@ -198,20 +200,21 @@ for question in questions:
         reponse = choose_response(read_xml(res), None)
         if reponse is None:
             reponse = "TODO -> choose good keyword !"
-        responses_from_system.append(reponse)
+    responses_from_system.append(reponse)
     print(i, "> Réponse:", reponse)
     i += 1
 
-    #for ent, lab in line:
-        #print("> Entité trouvé : '{}' qui est du type {}".format(ent, lab))
-    #print("> rule(s):", get_rule(find_key_word(ie_preprocess(question))))
+    # for ent, lab in line:
+    # print("> Entité trouvé : '{}' qui est du type {}".format(ent, lab))
+    # print("> rule(s):", get_rule(find_key_word(ie_preprocess(question))))
 
-#print(">>> TEST DE QUERY")
-#res = build_request(build_query("Brooklyn_Bridge", "crosses"))
-#print(choose_response(read_xml(res), None))
+# print(">>> TEST DE QUERY")
+# res = build_request(build_query("Brooklyn_Bridge", "crosses"))
+# print(choose_response(read_xml(res), None))
 
 
 print("\n>>> EVALUATION DU SYSTEME")
+
 
 # Calcul des métriques
 def Recall(our_correct_answer, standard_answer):
@@ -251,12 +254,18 @@ for i in range(len(root)):
 
 # Calcul des paramètres
 score = 0
-print(responses_from_system)
 # test pour voir si on a pas fait d'erreur
 if len(responses_from_file) == len(responses_from_system):
-    pass
+    for i in range(len(responses_from_file)):
+        for response in responses_from_file[i]:
+            if responses_from_system[i] == response:
+                score += 1
 else:
-    print("[ERROR] len(responses_system) ({}) != len(responses_file) ({})".format(len(responses_from_system), len(responses_from_file)))
+    print("[ERROR] len(responses_system) ({}) != len(responses_file) ({})".format(len(responses_from_system),
+                                                                                  len(responses_from_file)))
 
-for i in range(len(responses_from_file)):
-    print(i, responses_from_file[i])
+### LOG
+print("score : {}/{}".format(score, len(responses_from_file)))
+print("precision: {}%".format(Precision(score, len(responses_from_file))))
+print("F-measure: {}".format(
+    F_measure(Precision(score, len(responses_from_file)), Recall(score, len(responses_from_file)))))
