@@ -37,6 +37,20 @@ def ie_preprocess(doc):
 # NER with Spacy
 nlp = spacy.load('en_core_web_sm')
 
+#Calcul des métriques
+def Recall(our_correct_answer, standard_answer):
+    recall = our_correct_answer/standard_answer
+    return recall
+    
+def Precision(our_correct_answer, number_answer):
+    precision = our_correct_answer/number_answer
+    return precision
+
+def F_measure(precision, recall):
+    num = 2 * precision * recall
+    den = precision + recall
+    f_measure = num/den
+    return f_measure
 
 def ner(l):
     entities = []
