@@ -8,10 +8,10 @@ import re
 import urllib
 from SPARQLWrapper import SPARQLWrapper, XML
 from xml.etree.ElementTree import XML, fromstring
+import xml.etree.ElementTree as ET
 import sys
 import io
 import warnings
-from __future__ import print_function
 from nltk.metrics import *
 
 # IMPORT DU FICHIER QUESTION ET UTILISATION NLTK
@@ -26,6 +26,8 @@ pattern_question = re.compile(r'"en">([A-Za-z\s]*\?)')
 # On cherche les requetes
 pattern_request = re.compile(r'"en">(Give\s[A-Za-z\s]*\.)')
 
+# On va stocker les réponses de notre système
+responses_from_system = []
 
 # Tokenizer and pos_tag
 def ie_preprocess(doc):
@@ -37,20 +39,6 @@ def ie_preprocess(doc):
 # NER with Spacy
 nlp = spacy.load('en_core_web_sm')
 
-#Calcul des métriques
-def Recall(our_correct_answer, standard_answer):
-    recall = our_correct_answer/standard_answer
-    return recall
-    
-def Precision(our_correct_answer, number_answer):
-    precision = our_correct_answer/number_answer
-    return precision
-
-def F_measure(precision, recall):
-    num = 2 * precision * recall
-    den = precision + recall
-    f_measure = num/den
-    return f_measure
 
 def ner(l):
     entities = []
@@ -76,49 +64,49 @@ def get_rule(answer):
     # return a type of response for our requests
     if answer == 'where':
         # print(answer, ': the answer will be a place')
-        return key=["place"]
+        return ["place"]
     elif answer == 'when':
         # print(answer, ': the answer will be a date')
-        return key=["date"]
+        return ["date"]
     elif answer == 'who':
         # print(answer, ': the answer will be a person or a company/firm')
-        return key=["person", "company", "firm"]
+        return ["person", "company", "firm"]
     elif answer == 'how':
         # print(answer, ': the answer will be a quantity (number) or a NC')
-        return key=["number", "NC"]
+        return ["number", "NC"]
     elif answer == 'whom':
         # print(answer, ': the answer will be a person')
-        return key=["person"]
+        return ["person"]
     elif answer == 'in':
         # print(answer, ': the answer will be a place')
-        return key=["place"]
+        return ["place"]
     elif answer == 'what':
         # print(answer, ': the answer can be a place or a person or a number')
-        return key = ["person", "number"]
+        return ["person", "number"]
     elif answer == 'which':
         # print(answer, ': the answer will be find with the end of the question')
-        return key = ["person", "company", "firm"]
+        return ["person", "company", "firm"]
     elif answer == "give":
         # print(answer, ": it is a request !")
-        return key = ["list"]
+        return ["list"]
     else:
         print(answer, ': We dont recognize the question word')
         return None
 
 
-def build_query(key, verb):
+def build_query(key, input):
     liste = []
     simil = []
     prefix = " PREFIX dbo: <http://dbpedia.org/ontology/> PREFIX res: <http://dbpedia.org/resource/> "
     select = "SELECT DISTINCT ?uri "
-   # with open("relations.txt", "r") as a_file:
-   #     for line in a_file:
-   #         stripped_line = line.strip()
-   #         liste.append(stripped_line)
-   # for i in liste:
-   #     edit_distance(i, verb)
-   #     filter = "WHERE { res:" + key + " "+ i+" ?uri . }"
-   #     query = str(prefix + select + filter)
+    # with open("relations.txt", "r") as a_file:
+    #     for line in a_file:
+    #         stripped_line = line.strip()
+    #         liste.append(stripped_line)
+    # for i in liste:
+    #     edit_distance(i, verb)
+    filter = "WHERE { res:" + key + " dbo:" + input + " ?uri . }"
+    query = str(prefix + select + filter)
     return query
 
 
@@ -184,20 +172,91 @@ for raw in file:
     request = pattern_request.findall(raw)
     if len(question) != 0:
         questions.append(question)
+        print(question)
     elif len(request) != 0:
+        print(request)
         questions.append(request)
 
 # We will analyze it
+i = 1
 for question in questions:
     # cast list in string to do preprocess
     question = ''.join(question)
     print("--------------------------------")
-    print(">", question)
+    print(i, ">", question)
     line = ner(question)
+    entitie = None
+    reponse = "TODO -> entité non trouvé"
     for ent, lab in line:
-        print("> Entité trouvé : '{}' qui est du type {}".format(ent, lab))
-    print("> rule(s):", get_rule(find_key_word(ie_preprocess(question))))
+        entitie = ent
+    if entitie is not None:
+        # todo : à modifier avec le mot clé
+        #  (pour l'instant 1 bonne réponse seulement)
+        # entitie format to catch QueryBadFormed
+        entitie = entitie.replace(" ", "_")
+        res = build_request(build_query(entitie, "crosses"))
+        reponse = choose_response(read_xml(res), None)
+        if reponse is None:
+            reponse = "TODO -> choose good keyword !"
+        responses_from_system.append(reponse)
+    print(i, "> Réponse:", reponse)
+    i += 1
 
-print(">>> TEST DE QUERY")
-res = build_request(build_query("Brooklyn_Bridge", "crosses"))
-print(choose_response(read_xml(res), None))
+    #for ent, lab in line:
+        #print("> Entité trouvé : '{}' qui est du type {}".format(ent, lab))
+    #print("> rule(s):", get_rule(find_key_word(ie_preprocess(question))))
+
+#print(">>> TEST DE QUERY")
+#res = build_request(build_query("Brooklyn_Bridge", "crosses"))
+#print(choose_response(read_xml(res), None))
+
+
+print("\n>>> EVALUATION DU SYSTEME")
+
+# Calcul des métriques
+def Recall(our_correct_answer, standard_answer):
+    recall = our_correct_answer / standard_answer
+    return recall
+
+
+def Precision(our_correct_answer, number_answer):
+    precision = our_correct_answer / number_answer
+    return precision
+
+
+def F_measure(precision, recall):
+    num = 2 * precision * recall
+    den = precision + recall
+    f_measure = num / den
+    return f_measure
+
+
+# reponses du fichier
+responses_from_file = []
+
+# Lecture des réponses du fichier
+file_to_xml = ET.parse(PATH_FILE)
+root = file_to_xml.getroot()
+# Pour chaques questions
+for i in range(len(root)):
+    tag = root[i][-1].tag
+    reponses = []
+    if tag == "answers":
+        for answer in root[i][-1]:
+            reponses.append(answer[0].text)
+        responses_from_file.append(reponses)
+    else:
+        reponses.append("TO_FIND")
+        responses_from_file.append(reponses)
+
+# Calcul des paramètres
+score = 0
+print(responses_from_system)
+# test pour voir si on a pas fait d'erreur
+if len(responses_from_file) == len(responses_from_system):
+    pass
+else:
+    print("[ERROR] len(responses_system) ({}) != len(responses_file) ({})".format(len(responses_from_system), len(responses_from_file)))
+
+for i in range(len(responses_from_file)):
+    print(i, responses_from_file[i])
