@@ -93,20 +93,36 @@ def get_rule(answer):
     else:
         print(answer, ': We dont recognize the question word')
         return None
-
+    
+import numpy as np
 
 def build_query(key, input):
     liste = []
-    simil = []
+    simil = [[], []]
     prefix = " PREFIX dbo: <http://dbpedia.org/ontology/> PREFIX res: <http://dbpedia.org/resource/> "
     select = "SELECT DISTINCT ?uri "
-    # with open("relations.txt", "r") as a_file:
-    #     for line in a_file:
-    #         stripped_line = line.strip()
-    #         liste.append(stripped_line)
-    # for i in liste:
-    #     edit_distance(i, verb)
-    filter = "WHERE { res:" + key + " dbo:" + input + " ?uri . }"
+    with open("relations.txt", "r") as a_file:
+        for line in a_file:
+            stripped_line = line.strip()
+            liste.append(stripped_line)
+    for i in liste:
+        simil[0].append(edit_distance(i, input))
+        simil[1].append(i)
+    print("simil0",simil[0])
+    print("simil1",simil[1])
+    minimum = min(simil[0])
+    print("@@@@@@@@@@@@@@@@", minimum)
+    for ix, row in enumerate(simil): 
+        for iy, i in enumerate(row):
+            print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@",i)
+            if i == minimum:
+                print("simil0",simil[0])
+                print("simil1",simil[1])
+
+                print(simil[1][i])
+                vb = simil[1][i]
+
+    filter = "WHERE { res:" + str(key) +"  "+ str(vb) + " ?uri . }"
     query = str(prefix + select + filter)
     return query
 
@@ -196,7 +212,7 @@ for question in questions:
         #  (pour l'instant 1 bonne réponse seulement)
         # entitie format to catch QueryBadFormed
         entitie = entitie.replace(" ", "_")
-        res = build_request(build_query(entitie, "crosses"))
+        res = build_request(build_query(entitie, ))
         reponse = choose_response(read_xml(res), None)
         if reponse is None:
             reponse = "TODO -> choose good keyword !"
