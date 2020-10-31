@@ -45,37 +45,10 @@ nlp = spacy.load('en_core_web_sm')
 
  	
 
-"""
 
     
-def find_verb(text):
-    stop_words = set(stopwords.words('english')) 
-    word_tokens = nltk.word_tokenize(text) 
-
-    filtered_sentence = [w for w in word_tokens if not w in stop_words] 
-    filtered_sentence = [] 
-  
-    for w in word_tokens: 
-        if w not in stop_words: 
-            filtered_sentence.append(w) 
-            
-    for token, pos in filtered_sentence:
-        
-        if pos.startswith('V'):
-            verb = token
-   # print('text=======', text)
-   # line=nltk.word_tokenize(text)
-   # print('line========', line)
-   # pos_tagged = nltk.pos_tag(line)
-   # print('pos_tagged=========', pos_tagged)
-   # verb = [token for token, pos in nltk.pos_tag(nltk.word_tokenize(text)) if pos.startswith('V')]
     
-    print('verb==========',verb)
-
-"""
-    
-    
-def find_verb(text):
+def find_verbnouns(text):
     stop_words = set(stopwords.words('english')) 
     text = nltk.word_tokenize(text) 
     filtered_sentence = [w for w in text if not w in stop_words] 
@@ -88,11 +61,13 @@ def find_verb(text):
     print('filtered_sentence=======', filtered_sentence)
             
     for token, pos in nltk.pos_tag(filtered_sentence):
-        print('oken========', token)
+        print('token========', token)
         print('pos=========', pos)
-        if pos.startswith('V'):
+        if pos == 'VBD' or pos == 'VG' or pos == 'VB' or pos == 'VBZ':
+            print('token ===========', token)
             verb = token
-        else: verb = 'crosses'
+        elif pos == 'NN' or 'NNS': 
+            verb = token
 
     print('verb==========',verb)
     
@@ -186,6 +161,7 @@ def build_query(key, verb):
 
                 filter = "WHERE { res:"+ str(key) +"  "+ str(vb) +" ?uri . }"
                 query = str(prefix + select + filter)
+                print('query @@@@@@@@@@@@@@@@', query)
                 return query
 
 
@@ -264,8 +240,7 @@ for question in questions:
     question = ''.join(question)
     print("--------------------------------")
     print(i, ">", question)
-    verb = find_verb(question)
-
+    verb = find_verbnoun(question)
     line = ner(question)
     print('line = ', line)
     entitie = None
@@ -277,8 +252,8 @@ for question in questions:
         #  (pour l'instant 1 bonne réponse seulement)
         # entitie format to catch QueryBadFormed
         entitie = entitie.replace(" ", "_")
-        print(entitie)
-        print(line)
+        print('entitie @@@@@@@@@@@@@', entitie)
+        print('line @@@@@@@@@@@@', line)
         res = build_request(build_query(entitie, verb))
         reponse = choose_response(read_xml(res), None)
         if reponse is None:
@@ -350,6 +325,5 @@ else:
 ### LOG
 print("score : {}/{}".format(score, len(responses_from_file)))
 print("precision: {}%".format(Precision(score, len(responses_from_file))))
-print("F-measure: {}".format(
-    F_measure(Precision(score, len(responses_from_file)), Recall(score, 
-                                                                 (responses_from_file)))))
+print("F-measure:",F_measure(Precision(score, len(responses_from_file)), Recall(score, 
+                                                                 len(responses_from_file))))
