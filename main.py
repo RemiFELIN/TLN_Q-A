@@ -13,6 +13,7 @@ import sys
 import io
 import warnings
 from nltk.metrics import *
+from nltk.corpus import stopwords
 
 # IMPORT DU FICHIER QUESTION ET UTILISATION NLTK
 PATH_FILE = "questions.xml"
@@ -41,6 +42,66 @@ def ie_preprocess(doc):
 nlp = spacy.load('en_core_web_sm')
 
 
+
+ 	
+
+"""
+
+    
+def find_verb(text):
+    stop_words = set(stopwords.words('english')) 
+    word_tokens = nltk.word_tokenize(text) 
+
+    filtered_sentence = [w for w in word_tokens if not w in stop_words] 
+    filtered_sentence = [] 
+  
+    for w in word_tokens: 
+        if w not in stop_words: 
+            filtered_sentence.append(w) 
+            
+    for token, pos in filtered_sentence:
+        
+        if pos.startswith('V'):
+            verb = token
+   # print('text=======', text)
+   # line=nltk.word_tokenize(text)
+   # print('line========', line)
+   # pos_tagged = nltk.pos_tag(line)
+   # print('pos_tagged=========', pos_tagged)
+   # verb = [token for token, pos in nltk.pos_tag(nltk.word_tokenize(text)) if pos.startswith('V')]
+    
+    print('verb==========',verb)
+
+"""
+    
+    
+def find_verb(text):
+    stop_words = set(stopwords.words('english')) 
+    text = nltk.word_tokenize(text) 
+    filtered_sentence = [w for w in text if not w in stop_words] 
+    filtered_sentence = [] 
+    
+    for w in text: 
+        if w not in stop_words: 
+            filtered_sentence.append(w)
+    
+    print('filtered_sentence=======', filtered_sentence)
+            
+    for token, pos in nltk.pos_tag(filtered_sentence):
+        print('oken========', token)
+        print('pos=========', pos)
+        if pos.startswith('V'):
+            verb = token
+        else: verb = 'crosses'
+
+    print('verb==========',verb)
+    
+    return verb
+
+    
+    
+    
+    
 def ner(l):
     entities = []
     ner_nlp = nlp(l)
@@ -96,7 +157,8 @@ def get_rule(answer):
     
 import numpy as np
 
-def build_query(key, input):
+def build_query(key, verb):
+    print(verb)
     liste = []
     simil = [[], []]
     prefix = " PREFIX dbo: <http://dbpedia.org/ontology/> PREFIX res: <http://dbpedia.org/resource/> "
@@ -106,7 +168,7 @@ def build_query(key, input):
             stripped_line = line.strip()
             liste.append(stripped_line)
     for i in liste:
-        simil[0].append(edit_distance(i, input))
+        simil[0].append(edit_distance(i, verb))
         simil[1].append(i)
     print("simil0",simil[0])
     print("simil1",simil[1])
@@ -122,9 +184,9 @@ def build_query(key, input):
                 print(simil[1][i])
                 vb = simil[1][i]
 
-    filter = "WHERE { res:" + str(key) +"  "+ str(vb) + " ?uri . }"
-    query = str(prefix + select + filter)
-    return query
+                filter = "WHERE { res:"+ str(key) +"  "+ str(vb) +" ?uri . }"
+                query = str(prefix + select + filter)
+                return query
 
 
 # Building query (SPARQL Request)
@@ -202,7 +264,10 @@ for question in questions:
     question = ''.join(question)
     print("--------------------------------")
     print(i, ">", question)
+    verb = find_verb(question)
+
     line = ner(question)
+    print('line = ', line)
     entitie = None
     reponse = "TODO -> entité non trouvé"
     for ent, lab in line:
@@ -212,7 +277,9 @@ for question in questions:
         #  (pour l'instant 1 bonne réponse seulement)
         # entitie format to catch QueryBadFormed
         entitie = entitie.replace(" ", "_")
-        res = build_request(build_query(entitie, ))
+        print(entitie)
+        print(line)
+        res = build_request(build_query(entitie, verb))
         reponse = choose_response(read_xml(res), None)
         if reponse is None:
             reponse = "TODO -> choose good keyword !"
@@ -284,4 +351,5 @@ else:
 print("score : {}/{}".format(score, len(responses_from_file)))
 print("precision: {}%".format(Precision(score, len(responses_from_file))))
 print("F-measure: {}".format(
-    F_measure(Precision(score, len(responses_from_file)), Recall(score, len(responses_from_file)))))
+    F_measure(Precision(score, len(responses_from_file)), Recall(score, 
+                                                                 (responses_from_file)))))
