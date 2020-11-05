@@ -13,7 +13,7 @@ xml.etree.ElementTree
 io  
 warnings  
 
-
+## Description
 Après les imports des libraries, nous importons les fichiers servant au bon déroulement du code.
 (question.xml et relations.txt)
 
