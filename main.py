@@ -16,9 +16,12 @@ import requests
 from nltk.metrics import *
 from nltk.corpus import wordnet
 import lxml.etree as etree
+import datetime
+from datetime import date
 
 # IMPORT DU FICHIER QUESTION ET UTILISATION NLTK
 PATH_FILE = "questions.xml"
+RELATIONS_FILE = "relations.txt"
 
 file = open(PATH_FILE, "r")
 line = ""
@@ -63,25 +66,10 @@ def ner(l):
     return entities
 
 
-def find_key_word(text):
-    for elem in text:
-        elem = str(elem)
-        elem = elem.lower()
-        # what is -> what / in which -> in == pour éviter les erreurs de lecture
-        keyword = ['where', 'when', 'who', 'how', 'whom', 'in', 'what', 'which', 'give']
-        for q in keyword:
-            if elem.find(q) != -1:
-                return q
-    return None
-
-
 def lookup(keyword):
     """
     Using DBpedia Lookup for keywords
     :return:
-    True si la ressource a été trouvé dans la base
-    False sinon
-    None si une erreur est rencontré (voir log associé)
     """
     url = "https://lookup.dbpedia.org/api/search.asmx/KeywordSearch?"
     try:
@@ -114,6 +102,7 @@ def lookup(keyword):
         return None
 
 
+'''
 def get_rule(answer):
     # return a type of response for our requests
     if answer == 'where':
@@ -146,81 +135,79 @@ def get_rule(answer):
     else:
         print(answer, ': We dont recognize the question word')
         return None
+'''
 
 
-def build_query(key, input, mod):
+def build_query(key, relation):
     # On test si pour la clé donnée, la ressource est disponible sur dbpedia
     # On utilise ainsi 'lookup' (un service de dbpedia)
-    if lookup(key) is not None:
-        key = lookup(key)
-        # Catch SynthaxWarning
-        warnings.filterwarnings("ignore")
-        # Use SPARQL Wrapper
-        sparql = SPARQLWrapper("http://dbpedia.org/sparql")
-        prefix = "PREFIX dbo: <http://dbpedia.org/ontology/> PREFIX dbp: <http://dbpedia.org/property/> " \
-                 "PREFIX res: <http://dbpedia.org/resource/> "
-        select = "SELECT DISTINCT ?uri "
-        f = None
-        if mod == "dbo":
-            f = "WHERE { res:" + key + " dbo:" + input + " ?uri . }"
-        elif mod == "dbp":
-            f = "WHERE { res:" + key + " dbp:" + input + " ?uri . }"
-        else:
-            print("[ERROR] build_query: 'mod'={} is not avalaible / expected : 'dbo' or 'dbp'".format(mod))
-        query = str(prefix + select + f)
-        sparql.setQuery(query)
-        sparql.setReturnFormat(XML)
-        result = sparql.query().convert()
-        return result
-    elif lookup(key) is False:
-        print("[WARN] build_query: Aucune ressource trouvé pour key={}".format(key))
-    else:
-        print("[ERROR] build_query: lookup('{}') is", lookup(key))
+
+    # todo: lookup désactivé !
+    # if lookup(key) is not None:
+    # key = lookup(key)
+    key = str(key).replace(" ", "_")
+    key = str(key).replace(".", "")
+
+    # Catch SynthaxWarning
+    warnings.filterwarnings("ignore")
+    # Use SPARQL Wrapper
+    sparql = SPARQLWrapper("http://dbpedia.org/sparql")
+    prefix = "PREFIX dbo: <http://dbpedia.org/ontology/> PREFIX dbp: <http://dbpedia.org/property/> " \
+             "PREFIX res: <http://dbpedia.org/resource/> "
+    select = "SELECT DISTINCT ?uri "
+    f = "WHERE { res:" + key + " " + relation + " ?uri . }"
+    query = str(prefix + select + f)
+    sparql.setQuery(query)
+    sparql.setReturnFormat(XML)
+    result = sparql.query().convert()
+    return result
+
+    # elif lookup(key) is False:
+    # print("[WARN] build_query: Aucune ressource trouvé pour key={}".format(key))
+    # else:
+    # print("[ERROR] build_query: lookup('{}') is", lookup(key))
 
 
-def choose_response(response):
+def get_response(r):
     # Read and map xml in root
     results = []
-    root = fromstring(response.toxml())
+    root = fromstring(r.toxml())
     for i in range(len(root[1])):
         results.append(root[1][i][0][0].text)
-    print(results)
-    '''
-    if tag is None and len(response) != 0:
-        # return first link
-        return response[0]
-    elif len(response) != 0:
-        # 0 Result so return None
-        return None
-    response_choosen = None
-    # Replace pounctuation (.:/#) by space
-    request_in_text = []
-    for i in range(len(response)):
-        text = response[i].replace(".", " ")
-        text = text.replace("/", " ")
-        text = text.replace(":", " ")
-        text = text.replace("#", " ")
-        request_in_text.append(text)
-    # For each element in redquest_in_text
-    for elem in request_in_text:
-        # cast response in Text nltk
-        tokens = nltk.word_tokenize(elem)
-        text = nltk.Text(tokens)
-        print(text)
-        # A method to redirect print value into a variable
-        old_stdout = sys.stdout
-        new_stdout = io.StringIO()
-        sys.stdout = new_stdout
-        # Our matcher
-        text.similar(tag)
-        output = new_stdout.getvalue()
-        sys.stdout = old_stdout
-        # We choose first one which match
-        if output != "No matches":
-            response_choosen = response[request_in_text.index(elem)]
-            break
-    '''
     return results
+
+
+def get_relation(text):
+    """
+    :param text:
+    :return:
+    """
+    collection = []
+    text = ie_preprocess(text)
+    # Si un des mots de la phrase est proche d'un thème
+    # dans le fichier relation.txt, on le sélectionne
+    for i in range(len(text)):
+        collection.append(text[i][0])
+    # On récupère les relations et on y associe le score avec
+    # notre collection de mots
+    relations = []
+    min = 100
+    best_relation = ""
+    for l in open(RELATIONS_FILE, "r"):
+        l = l.replace("\n", "")
+        r = re.compile(r':([a-z].*)')
+        for elem in collection:
+            score = edit_distance(r.findall(l)[0], elem)
+            # On retiens le score max
+            if score < min:
+                min = score
+                best_relation = l
+    return best_relation
+
+
+get_relation("Which river does the  cross?")
+
+########################################################################################"
 
 
 # To find question and request
@@ -241,34 +228,31 @@ for question in questions:
     print("--------------------------------")
     print(i, ">", question)
     line = ner(question)
-    print("ner:", line)
-    # print("preprocess:", ie_preprocess(question))
     # lookup("Brooklyn Bridge")
+    reponses = None
     try:
         if lookup(line[0][0]) is not None:
-            # todo : à modifier avec le mot clé
-            #  (pour l'instant 1 bonne réponse seulement)
-            entitie = lookup(line[0][0])
-            res = build_query(entitie, "crosses", "dbo")
-            reponses = choose_response(res)
+            # On retire le NER de la question pour le preprocess
+            question = question.replace(line[0][0], '')
+            # todo: solution temporaire (tant que 'lookup' restera off)
+            # entitie = lookup(line[0][0])
+            entitie = line[0][0]
+            relation = get_relation(question)
+            res = build_query(entitie, relation)
+            reponses = get_response(res)
             if reponses is None:
                 reponses = "TODO -> choose good keyword !"
+            else:
                 reponses_given += 1
     except IndexError:
         print("Aucun NER trouvé !")
     responses_from_system.append(reponses)
-    print(i, "> Réponse:", reponse)
+    print(i, "> Réponse:", reponses)
     i += 1
 
-    # for ent, lab in line:
-    # print("> Entité trouvé : '{}' qui est du type {}".format(ent, lab))
-    # print("> rule(s):", get_rule(find_key_word(ie_preprocess(question))))
-
-# print(">>> TEST DE QUERY")
-# res = build_request(build_query("Brooklyn_Bridge", "crosses"))
-# print(choose_response(read_xml(res), None))
-
 ###################################################################################
+
+
 print("\n>>> EVALUATION DU SYSTEME\n")
 
 
@@ -283,11 +267,13 @@ def Precision(our_correct_answer, number_answer):
     return precision
 
 
-def F_measure(precision, recall):
-    num = 2 * precision * recall
-    den = precision + recall
-    f_measure = num / den
-    return f_measure
+def F_measure(prec, rec):
+    if prec == rec == 0:
+        return 0
+    else:
+        num = 2 * prec * rec
+        den = prec + rec
+        return num / den
 
 
 # reponses du fichier
@@ -310,24 +296,38 @@ for i in range(len(root)):
 
 # Calcul des paramètres
 score = 0
-# test pour voir si on a pas fait d'erreur
 if len(responses_from_file) == len(responses_from_system):
     for i in range(len(responses_from_file)):
-        for response in responses_from_file[i]:
-            if responses_from_system[i] == response:
-                score += 1
+        try:
+            for rep_sys in responses_from_system[i]:
+                if rep_sys in responses_from_file[i]:
+                    score += 1
+                elif 'TO_FIND' in responses_from_file[i] and rep_sys is not None:
+                    score += 1
+        except TypeError:
+            pass
 else:
     print("[ERROR] len(responses_system) ({}) != len(responses_file) ({})".format(len(responses_from_system),
                                                                                   len(responses_from_file)))
 
-### LOG
-print("recall : {}".format(Recall(reponses_given, len(questions))))
-print("precision: {} soit {}%".format(Precision(score, len(responses_from_file)),
-                                      round(Precision(score, len(responses_from_file)) * 100, 2)))
-print("F-measure: {}".format(
-    F_measure(Precision(score, len(responses_from_file)), Recall(reponses_given, len(responses_from_file)))))
+# LOG
+# Création du fichier de sortie
+output = open(str(date.today()) + "_QA_res.txt", "w")
+name = output.name
 
-# print(">>> TEST SYNSET")
-# for synomys in wordnet.synsets("mayor"):
-# for l in synomys.lemmas():
-# print(l.name())
+output.write(">Auteurs: Rémi FELIN & Alexis VIGHI\n")
+output.write(">Résultats du système Q/A\n")
+output.write(">{}\n".format(datetime.datetime.now()))
+output.write("\n---------------------------------------------------------\n")
+output.write("Le systeme a donné {} ressources pour les {} questions posés\n".format(score, len(responses_from_file)))
+output.write("recall : {}\n".format(Recall(reponses_given, len(questions))))
+output.write("precision: {} soit {}%\n".format(Precision(score, len(responses_from_file)),
+                                               round(Precision(score, len(responses_from_file)) * 100, 2)))
+output.write("F-measure: {}\n".format(
+    F_measure(Precision(score, len(responses_from_file)), Recall(reponses_given, len(responses_from_file)))))
+output.write("---------------------------------------------------------\n")
+
+output.close()
+
+if open(name, "r") is not None:
+    print("Le fichier", name, "a bien été créé")
