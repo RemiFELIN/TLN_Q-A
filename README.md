@@ -29,7 +29,7 @@ La fonction build query est la fonction qui va permettre de créer les query en 
 
 COmme expliqué plus haut, la fonction get_relation va permettre d'établir des liens entre les mots de la question, à l'aide de la fonction de nltk : edit-distance, et les dbo/dbp du fichier 'relations.txt'
 
-On va calculer nos métrics, que sont le recall, precision, et le f_score.
+On va calculer nos métrics, que sont le recall, precision, et le f_score.  
 Enfin, nous mettons tout en commun, en 'reliant' chaque fonction afin de pouvoir lire, traiter le document, chercher les relations, donner des réponses et calculer notre score.
 Ce score sera alors édité dans un fichier à part.
 
