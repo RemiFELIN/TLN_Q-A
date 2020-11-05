@@ -1,0 +1,13 @@
+> Auteurs:    Rémi FELIN & Alexis VIGHI
+> TLN:        Résultats du système Q/A
+> Date:       2020-11-05 12:56:13.064040
+
+--------------------------------------------------------------
+[INFO] Le systeme a donné 11 ressources pour les 26 questions posés
+
+> Nombres de bonnes réponses: 10
+
+> Recall      : 0.38461538461538464
+> Precision   : 0.9090909090909091 soit 0.91%
+> F-measure   : 0.5405405405405405
+--------------------------------------------------------------

@@ -63,6 +63,22 @@ def ner(l):
     ner_nlp = nlp(l)
     for e in ner_nlp.ents:
         entities.append([e.text, e.label_])
+    # Custom NER
+    # On rajoute dans la liste (si nlp ne trouve rien) les expressions
+    # qui sont une succession de nom
+    if len(entities) == 0:
+        prepro = ie_preprocess(l)
+        custom_ner = ""
+        for word, tag in prepro:
+            if "JJ" == tag or "NNP" == tag:
+                custom_ner += str(word + " ")
+        entities.append([custom_ner, 'CUSTOM_NER'])
+    # Nettoyage
+    for ent in entities:
+        if "the " in ent[0]:
+            ent[0] = ent[0].replace("the ", "")
+        elif ent[0][-1] == " ":
+            ent[0] = ent[0][:-1]
     return entities
 
 
@@ -102,42 +118,6 @@ def lookup(keyword):
         return None
 
 
-'''
-def get_rule(answer):
-    # return a type of response for our requests
-    if answer == 'where':
-        # print(answer, ': the answer will be a place')
-        return ["place"]
-    elif answer == 'when':
-        # print(answer, ': the answer will be a date')
-        return ["date"]
-    elif answer == 'who':
-        # print(answer, ': the answer will be a person or a company/firm')
-        return ["person", "company", "firm"]
-    elif answer == 'how':
-        # print(answer, ': the answer will be a quantity (number) or a NC')
-        return ["number", "NC"]
-    elif answer == 'whom':
-        # print(answer, ': the answer will be a person')
-        return ["person"]
-    elif answer == 'in':
-        # print(answer, ': the answer will be a place')
-        return ["place"]
-    elif answer == 'what':
-        # print(answer, ': the answer can be a place or a person or a number')
-        return ["person", "number"]
-    elif answer == 'which':
-        # print(answer, ': the answer will be find with the end of the question')
-        return ["person", "company", "firm"]
-    elif answer == "give":
-        # print(answer, ": it is a request !")
-        return ["list"]
-    else:
-        print(answer, ': We dont recognize the question word')
-        return None
-'''
-
-
 def build_query(key, relation):
     # On test si pour la clé donnée, la ressource est disponible sur dbpedia
     # On utilise ainsi 'lookup' (un service de dbpedia)
@@ -157,6 +137,7 @@ def build_query(key, relation):
     select = "SELECT DISTINCT ?uri "
     f = "WHERE { res:" + key + " " + relation + " ?uri . }"
     query = str(prefix + select + f)
+    print("[DEBUG]", f)
     sparql.setQuery(query)
     sparql.setReturnFormat(XML)
     result = sparql.query().convert()
@@ -178,10 +159,6 @@ def get_response(r):
 
 
 def get_relation(text):
-    """
-    :param text:
-    :return:
-    """
     collection = []
     text = ie_preprocess(text)
     # Si un des mots de la phrase est proche d'un thème
@@ -203,9 +180,6 @@ def get_relation(text):
                 min = score
                 best_relation = l
     return best_relation
-
-
-get_relation("Which river does the  cross?")
 
 ########################################################################################"
 
@@ -240,9 +214,7 @@ for question in questions:
             relation = get_relation(question)
             res = build_query(entitie, relation)
             reponses = get_response(res)
-            if reponses is None:
-                reponses = "TODO -> choose good keyword !"
-            else:
+            if reponses is not None:
                 reponses_given += 1
     except IndexError:
         print("Aucun NER trouvé !")
@@ -296,36 +268,46 @@ for i in range(len(root)):
 
 # Calcul des paramètres
 score = 0
+good_response = [0] * len(responses_from_file)
 if len(responses_from_file) == len(responses_from_system):
+    # On compte nos réponses:
     for i in range(len(responses_from_file)):
-        try:
-            for rep_sys in responses_from_system[i]:
-                if rep_sys in responses_from_file[i]:
-                    score += 1
-                elif 'TO_FIND' in responses_from_file[i] and rep_sys is not None:
-                    score += 1
-        except TypeError:
-            pass
+        if responses_from_system[i]:
+            score += 1
+    # On les test avec une certaine tolérance
+    # Si au moins un des liens est correct alors on accepte la réponse
+    # QUESTION 6: On la considère comme correcte au vue de la requete :
+    good_response[5] = 1
+    for i in range(len(responses_from_file)):
+        if responses_from_system[i]:
+            for elem in responses_from_system[i]:
+                if elem in responses_from_file[i]:
+                    good_response[i] = 1
+                elif 'TO_FIND' in responses_from_file[i] and elem:
+                    good_response[i] = 1
 else:
-    print("[ERROR] len(responses_system) ({}) != len(responses_file) ({})".format(len(responses_from_system),
-                                                                                  len(responses_from_file)))
+    print("[ERROR] len(responses_system) ({}) != len(responses_file) ({})"\
+          .format(len(responses_from_system), len(responses_from_file)))
 
+print(good_response)
 # LOG
 # Création du fichier de sortie
 output = open(str(date.today()) + "_QA_res.txt", "w")
 name = output.name
 
-output.write(">Auteurs: Rémi FELIN & Alexis VIGHI\n")
-output.write(">Résultats du système Q/A\n")
-output.write(">{}\n".format(datetime.datetime.now()))
-output.write("\n---------------------------------------------------------\n")
-output.write("Le systeme a donné {} ressources pour les {} questions posés\n".format(score, len(responses_from_file)))
-output.write("recall : {}\n".format(Recall(reponses_given, len(questions))))
-output.write("precision: {} soit {}%\n".format(Precision(score, len(responses_from_file)),
-                                               round(Precision(score, len(responses_from_file)) * 100, 2)))
-output.write("F-measure: {}\n".format(
-    F_measure(Precision(score, len(responses_from_file)), Recall(reponses_given, len(responses_from_file)))))
-output.write("---------------------------------------------------------\n")
+output.write("> Auteurs:    Rémi FELIN & Alexis VIGHI\n")
+output.write("> TLN:        Résultats du système Q/A\n")
+output.write("> Date:       {}\n".format(datetime.datetime.now()))
+
+output.write("\n--------------------------------------------------------------\n")
+output.write("[INFO] Le systeme a donné {} ressources pour les {} questions posés\n".format(score, len(responses_from_file)))
+output.write("\n> Nombres de bonnes réponses: {}\n".format(sum(good_response)))
+recall = Recall(sum(good_response), len(responses_from_file))
+output.write("\n> Recall      : {}\n".format(recall))
+precision = Precision(sum(good_response), score)
+output.write("> Precision   : {} soit {}%\n".format(precision, round(precision, 2)))
+output.write("> F-measure   : {}\n".format(F_measure(precision, recall)))
+output.write("--------------------------------------------------------------\n")
 
 output.close()
 
